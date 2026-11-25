@@ -1,0 +1,7 @@
+{
+  "device_id": "custom-1",
+  "dev_eui": "REPLACE_WITH_DEV_EUI",
+  "device_address": "REPLACE_WITH_DEV_ADDR",
+  "app_s_key": "REPLACE_WITH_APP_S_KEY",
+  "nwk_s_key": "REPLACE_WITH_NWK_S_KEY"
+}

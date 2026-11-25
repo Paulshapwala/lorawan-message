@@ -1,0 +1,9 @@
+/end devices/
+.pio/
+.vscode/
+__pycache__/
+.env
+.env.*
+*_cred.json
+*.kicad_prl
+*-backups/
