@@ -13,6 +13,7 @@
 
 #define PIN_LED1 15
 #define LED_BUILTIN PIN_LED1
+#define LED_BLUE LED_BUILTIN // Bluefruit connection indicator.
 #define LED_STATE_ON 1
 #define PIN_3V3_EN 13
 

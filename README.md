@@ -12,7 +12,7 @@ flowchart LR
     G -->|"LoRaWAN downlink"| B["Receiving device"]
 ```
 
-The sender selects a destination with the P1.0 button and sends a short test message. Node-RED reads the destination tag and queues the message with The Things Stack. The receiving Class A device opens its receive windows when its operator chooses **Check messages**. The dashboard shows queue and transmission status. The receiver's OLED confirms that the device received the message.
+The sender selects a destination with the P1.0 button and sends a test message or text from a phone over Bluetooth Low Energy (BLE). Node-RED reads the destination tag and queues the message with The Things Stack. The receiving Class A device opens its receive windows when its operator chooses **Check messages** or sends `/poll` from a connected phone. The dashboard shows queue and transmission status. The receiving device displays the text on its OLED and forwards it to a connected phone with UART open.
 
 ## Project layout
 
@@ -27,7 +27,7 @@ The sender selects a destination with the P1.0 button and sends a short test mes
 
 1. Register `custom-1` and `custom-2` as LoRaWAN 1.0.x Class A ABP devices in the same TTN application. The included firmware targets the EU868 frequency plan. Match each device's initial RX1 delay and RX2 data rate to its settings in `networking/platformio.ini`. See the [TTN ABP setup guide](https://www.thethingsindustries.com/docs/hardware/devices/adding-devices/manual/abp/).
 2. Create an `end devices` folder beside `networking`. Make a copy of `networking/device.example.json` named `custom-1.json` and another named `custom-2.json` in that folder. Set each device ID and enter its own TTN values as hex strings without spaces. Git ignores the credentials folder.
-3. Open `networking` in PlatformIO. Upload `gateway_connect` to the first board and `gateway_connect_custom_2` to the second board. The `promicro_nrf52840` profile is available for testing the OLED alone.
+3. Open `networking` in PlatformIO. Upload `gateway_connect` to the first board and `gateway_connect_custom_2` to the second board. Use `promicro_nrf52840` for an OLED bench test or `hello_ble` to test the BLE UART echo.
 
 ## Set up Node-RED
 
@@ -42,6 +42,12 @@ The sender selects a destination with the P1.0 button and sends a short test mes
 - Choose **Change target** and select a device, then choose **Send hello**. The selected target is saved on the board.
 - Wait for the dashboard to show the message queued, then choose **Check messages** on the receiving device. Use **Back** to return to the action menu.
 - To add a device, register its ID in the TTN application, add it to `custom_end_devices` in `platformio.ini`, and rebuild the relevant boards. Give the new board its own PlatformIO profile and credential file.
+
+### Send from a phone
+
+1. Set the destination using **Change target**, then hold P1.0 on **BLE Control**. The board advertises for 60 seconds under a name such as `custom-1 BLE`.
+2. Connect from Bluefruit LE Connect and open **UART**. Enter the pairing code shown on the OLED when prompted. Use **Back** to return to the action menu while keeping the phone connected. [Adafruit UART Terminal guide](https://learn.adafruit.com/bluefruit-le-connect/uart-terminal)
+3. Type a line of up to 48 bytes and tap **Send**. Once the dashboard shows **Queued**, choose **Check messages** on the receiver or send `/poll` from its phone. Choose **Turn BLE off** in **BLE Control** to disconnect the phone.
 
 ## Message format
 
