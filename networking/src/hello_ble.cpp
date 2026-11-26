@@ -1,3 +1,7 @@
+/** @file
+ * Bench sketch for testing the phone-to-board BLE link.
+ * It advertises a UART and echoes each received line to the phone and OLED.
+ */
 #include <Arduino.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
@@ -18,6 +22,7 @@ bool phoneConnected = false;
 bool greetingSent = false;
 BleTextLine<maxMessageBytes> phoneLine;
 
+/// Show the board name, connection status, and optional message on the OLED.
 void show(const char* status, const char* text = "") {
     if (!oledReady) {
         return;
@@ -32,6 +37,7 @@ void show(const char* status, const char* text = "") {
 
 }
 
+/// Power the OLED, configure the BLE UART, and advertise as Hello BLE.
 void setup() {
     Serial.begin(115200);
 
@@ -70,6 +76,7 @@ void setup() {
     show(bleReady ? "Waiting for phone" : "BLE advertising failed");
 }
 
+/// Greet each subscribed phone, echo complete lines, and clear partial input on disconnect.
 void loop() {
     if (!bleReady) {
         delay(20);

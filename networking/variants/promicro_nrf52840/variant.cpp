@@ -1,3 +1,6 @@
+/** @file
+ * Maps Arduino digital pin indices to nRF52840 GPIO numbers on the Pro Micro.
+ */
 #include "variant.h"
 
 // Arduino pin numbers follow the nRF52840 GPIO numbers (P1 starts at 32).

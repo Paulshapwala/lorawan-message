@@ -1,3 +1,7 @@
+/** @file
+ * Extends RadioLib with LittleFS session persistence, receive-window
+ * configuration, and link measurements for this EU868 ABP end device.
+ */
 #pragma once
 
 #include <Adafruit_LittleFS.h>
@@ -5,10 +9,12 @@
 #include <RadioLib.h>
 #include <stddef.h>
 
+/// Keep the LoRaWAN session and counters across reboots and capture downlink measurements.
 class GatewaySession : public LoRaWANNode {
 public:
     using LoRaWANNode::LoRaWANNode;
 
+    /// Measurements captured on the first downlink in the current exchange.
     struct DownlinkMetrics {
         bool received = false;
         bool hasSnr = false;
@@ -18,10 +24,14 @@ public:
         RadioLibTime_t replyDelayMs = 0;
     };
 
+    /// Clear the previous measurements before starting a new exchange.
     void resetDownlinkMetrics() { downlinkMetrics = {}; }
 
+    /// Return the captured measurements. Check received before using their values.
     const DownlinkMetrics& lastDownlinkMetrics() const { return downlinkMetrics; }
 
+    /// Apply the profile's initial RX1 delay and RX2 data rate when needed.
+    /// Preserve network-negotiated receive settings for a matching saved session.
     bool initializeReceiveWindows(uint8_t rx1DelaySeconds, uint8_t rx2DataRate) {
         // Open the radio earlier and allow more time for the downlink preamble.
         scanGuard = 60;
@@ -56,6 +66,7 @@ public:
         return true;
     }
 
+    /// Print the active RX1 delay in seconds and the RX2 data-rate index.
     void printReceiveWindows(Print& output) const {
         output.print("RX1 delay ");
         output.print(rxDelays[RADIOLIB_LORAWAN_RX1] / 1000);
@@ -63,8 +74,11 @@ public:
         output.println(channels[RADIOLIB_LORAWAN_RX2].dr);
     }
 
+    /// Return the frame counter that RadioLib will use for the next uplink.
     uint32_t nextCounter() const { return fCntUp; }
 
+    /// Save the next unused counter in flash before transmitting with the current one.
+    /// This lets a reboot skip the attempted counter if transmission was interrupted.
     bool reserveCounter(const char* path) {
         // Save the next unused counter before transmitting the current one.
         if (fCntUp == UINT32_MAX) {
@@ -76,6 +90,7 @@ public:
         return saved;
     }
 
+    /// Load and validate a saved session. A missing file allows the board to start a new session.
     bool restore(const char* path) {
         receiveSettingsVersion = 0;
         if (!InternalFS.exists(path)) {
@@ -90,6 +105,7 @@ public:
         return true;
     }
 
+    /// Persist the session after the exchange and advance past the attempted uplink counter.
     bool saveAfterUplink(const char* path, uint32_t attemptedCounter) {
         if (fCntUp <= attemptedCounter) {
             fCntUp = attemptedCounter + 1;
@@ -98,6 +114,7 @@ public:
     }
 
 protected:
+    /// Delegate reception to RadioLib, then capture the first downlink's timing and radio measurements.
     int16_t receiveDownlink() override {
         const int16_t window = LoRaWANNode::receiveDownlink();
         if (window > 0 && !downlinkMetrics.received) {
@@ -118,12 +135,14 @@ private:
     uint8_t receiveSettingsVersion = 0;
     DownlinkMetrics downlinkMetrics;
 
+    /// Preserve the RadioLib buffers and receive-settings marker in their on-flash order.
     struct SavedSession {
         uint8_t nonces[RADIOLIB_LORAWAN_NONCES_BUF_SIZE];
         uint8_t session[RADIOLIB_LORAWAN_SESSION_BUF_SIZE];
         uint8_t receiveSettingsVersion;
     };
 
+    /// Read an exact-size session record. When allowed, also accept the legacy layout without the marker.
     static bool read(const char* path, SavedSession& data, bool allowLegacy = false) {
         auto file = InternalFS.open(path, Adafruit_LittleFS_Namespace::FILE_O_READ);
         const auto size = file ? file.size() : 0;
@@ -134,6 +153,7 @@ private:
         return valid;
     }
 
+    /// Write and read back a temporary session file before replacing the saved record.
     bool save(const char* path) {
         constexpr char stagingPath[] = "/ttn-session.tmp";
         // An interrupted save can leave this file behind. FILE_O_WRITE opens at

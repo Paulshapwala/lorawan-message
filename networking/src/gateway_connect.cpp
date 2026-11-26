@@ -1,3 +1,8 @@
+/** @file
+ * Runs on each Pro Micro end device. The P1 menu, USB commands, and paired
+ * phone share one LoRaWAN send path through the RA-01SH radio. Received
+ * application payloads go to the OLED, USB serial, and an active BLE UART.
+ */
 #include <Arduino.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_TinyUSB.h>
@@ -80,14 +85,17 @@ bool buttonHoldHandled = false;
 unsigned long buttonChangedAt = 0;
 unsigned long buttonPressedAt = 0;
 
+/// Look up a selectable peer by index, skipping this board's own device ID.
 const EndDevice& peerAt(size_t index) {
     return endDevices[index < localDeviceIndex ? index : index + 1];
 }
 
+/// Return the selected recipient, or nullptr if there is none.
 const EndDevice* currentTarget() {
     return selectedTarget < peerCount ? &peerAt(selectedTarget) : nullptr;
 }
 
+/// Read a target file belonging to this board. Return zero for missing or invalid settings.
 uint8_t readTarget(const char* path) {
     uint8_t settings[2] = {};
     auto file = InternalFS.open(path, Adafruit_LittleFS_Namespace::FILE_O_READ);
@@ -98,6 +106,7 @@ uint8_t readTarget(const char* path) {
     return valid ? settings[1] : 0;
 }
 
+/// Restore the saved recipient if it remains registered. Otherwise select the first available peer.
 void restoreTarget() {
     selectedTarget = peerCount > 0 ? 0 : peerCount;
     const uint8_t storedTarget = readTarget(targetSettingsPath);
@@ -109,6 +118,7 @@ void restoreTarget() {
     }
 }
 
+/// Verify a staged recipient setting before replacing the saved file. Skip the write if it already matches.
 bool saveTarget(uint8_t tag) {
     if (readTarget(targetSettingsPath) == tag) {
         return true;
@@ -125,6 +135,7 @@ bool saveTarget(uint8_t tag) {
            InternalFS.rename(targetStagingPath, targetSettingsPath) && readTarget(targetSettingsPath) == tag;
 }
 
+/// Probe the SSD1306 over I2C and configure it for white text. Return whether the display is ready.
 bool initializeOled() {
     Wire.begin();
     Wire.beginTransmission(oledAddress);
@@ -138,6 +149,7 @@ bool initializeOled() {
     return true;
 }
 
+/// Change the navigation state and clear the OLED if it is available. Return whether drawing is possible.
 bool startScreen(Screen screen) {
     currentScreen = screen;
     if (!oledReady) {
@@ -148,6 +160,7 @@ bool startScreen(Screen screen) {
     return true;
 }
 
+/// Draw the device ID and radio status on the home screen.
 void showHome() {
     if (startScreen(Screen::Home)) {
         oled.println(deviceId);
@@ -161,6 +174,7 @@ void showHome() {
     }
 }
 
+/// Draw the action menu with the active recipient and highlighted item.
 void showMenu() {
     if (startScreen(Screen::Menu)) {
         oled.println(deviceId);
@@ -175,6 +189,7 @@ void showMenu() {
     }
 }
 
+/// Draw the page containing the highlighted peer and mark the active recipient.
 void showTargets() {
     if (startScreen(Screen::Targets)) {
         oled.println("Change target");
@@ -196,6 +211,7 @@ void showTargets() {
     }
 }
 
+/// Read the BLE state. The UART is ready once the link is authenticated and the phone subscribes to notifications.
 BleState bleState() {
     if (!bleEnabled) {
         return BleState::Off;
@@ -211,6 +227,7 @@ BleState bleState() {
     return Bluefruit.Advertising.isRunning() ? BleState::Advertising : BleState::Off;
 }
 
+/// Draw the BLE controls and, during pairing, display the passkey stored as its value plus one.
 void showBleControl(BleState state, uint32_t passkey) {
     if (!startScreen(Screen::BleControl)) {
         return;
@@ -247,17 +264,20 @@ void showBleControl(BleState state, uint32_t passkey) {
     oled.display();
 }
 
+/// Send a line to the authenticated phone when its UART is subscribed.
 void writeBleLine(const char* text) {
     if (bleState() == BleState::Ready) {
         bleUart.println(text);
     }
 }
 
+/// Place the Back action on the last OLED row.
 void drawBack() {
     oled.setCursor(0, oled.height() - oledLineHeight);
     oled.print("> Back  Hold: OK");
 }
 
+/// Draw a status and optional detail. Result screens include the Back action.
 void showStatus(const char* message, const char* detail = nullptr, Screen screen = Screen::Status) {
     if (startScreen(screen)) {
         oled.println(message);
@@ -271,6 +291,7 @@ void showStatus(const char* message, const char* detail = nullptr, Screen screen
     }
 }
 
+/// Report an error to USB serial, the connected phone, and the OLED result screen.
 void reportError(const char* message, const char* detail = nullptr) {
     Serial.println(message);
     writeBleLine(message);
@@ -281,12 +302,14 @@ void reportError(const char* message, const char* detail = nullptr) {
     showStatus(message, detail, Screen::Result);
 }
 
+/// Include the numeric RadioLib status when reporting a radio failure.
 void reportRadioError(const char* message, int16_t status) {
     char detail[24];
     snprintf(detail, sizeof(detail), "RadioLib status %d", static_cast<int>(status));
     reportError(message, detail);
 }
 
+/// Hand off the passkey from Bluefruit's callback to the main loop, which draws the OLED.
 bool showPairingPasskey(uint16_t, const uint8_t passkey[6], bool matchRequest) {
     uint32_t value = 0;
     for (size_t i = 0; i < 6; ++i) {
@@ -296,6 +319,7 @@ bool showPairingPasskey(uint16_t, const uint8_t passkey[6], bool matchRequest) {
     return !matchRequest; // The OLED provides a passkey for entry, with no numeric confirmation.
 }
 
+/// Configure the protected UART on first use, then open a timed advertising window.
 bool startBle() {
     if (!bleInitialized) {
         if (bleSetupAttempted) {
@@ -315,6 +339,7 @@ bool startBle() {
         if (bleUart.begin() != ERROR_NONE) {
             return false;
         }
+        // Hand off overflow handling to the main loop so it can discard incomplete input.
         bleUart.setRxOverflowCallback([](uint16_t, uint16_t) { bleRxOverflow.store(true); });
         Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
         Bluefruit.Advertising.addService(bleUart);
@@ -331,6 +356,7 @@ bool startBle() {
     return bleEnabled;
 }
 
+/// Close advertising and disconnect the current phone, if present.
 void stopBle() {
     bleEnabled = false;
     displayedPasskey.store(0);
@@ -343,6 +369,7 @@ void stopBle() {
     }
 }
 
+/// Open the BLE screen, starting a new advertising window if BLE is off.
 void openBleControl() {
     if (bleState() == BleState::Off && !startBle()) {
         reportError("Could not start BLE");
@@ -352,6 +379,7 @@ void openBleControl() {
     showBleControl(bleState(), displayedPasskey.load());
 }
 
+/// Bring up the RA-01SH, restore the ABP session and recipient, and apply the EU868 settings.
 bool initializeRadio() {
     showStatus("Starting radio...");
 
@@ -397,6 +425,7 @@ bool initializeRadio() {
     return true;
 }
 
+/// Print uplink airtime in milliseconds and, when available, the measured network ACK metrics.
 void printLinkMetrics(Print& output, RadioLibTime_t airtimeMs, const GatewaySession::DownlinkMetrics* ack) {
     output.print("TX air ");
     output.print(airtimeMs);
@@ -418,6 +447,9 @@ void printLinkMetrics(Print& output, RadioLibTime_t airtimeMs, const GatewaySess
     output.println(" ms");
 }
 
+/// Send a poll, a generated hello, or a line from the phone after checking radio limits.
+/// Save the frame counter before transmission and the updated session after the exchange.
+/// Show the result locally and forward any downlink to a subscribed phone.
 void sendUplink(int command, const char* phoneMessage = nullptr) {
     const bool poll = command == 'p';
     const bool confirmed = command == 'a';
@@ -570,6 +602,8 @@ void sendUplink(int command, const char* phoneMessage = nullptr) {
     }
 }
 
+/// Refresh the pairing screen and process one complete line from the authenticated phone.
+/// The /poll command checks for downlinks. Other lines are sent to the selected recipient.
 void updateBle() {
     const auto state = bleState();
     const uint32_t passkey = state == BleState::Pairing ? displayedPasskey.load() : 0;
@@ -612,6 +646,7 @@ void updateBle() {
     }
 }
 
+/// Return to the action menu when the radio is ready, or to the home screen otherwise.
 void leaveResult() {
     if (ready) {
         showMenu();
@@ -620,6 +655,7 @@ void leaveResult() {
     }
 }
 
+/// Save the highlighted recipient if one is selected, then return to the action menu.
 void selectTargetMenuItem() {
     if (targetMenuItem < peerCount) {
         const auto& target = peerAt(targetMenuItem);
@@ -632,6 +668,7 @@ void selectTargetMenuItem() {
     showMenu();
 }
 
+/// Debounce P1 and dispatch a tap to scroll or go back, and a hold to select the highlighted action.
 void updateMenuButton() {
     const auto now = millis();
     const bool pressed = digitalRead(menuButtonPin) == LOW;
@@ -699,6 +736,7 @@ void updateMenuButton() {
 }
 } // namespace
 
+/// Power the OLED and radio, then initialize the board and capture the button's starting state.
 void setup() {
     Serial.begin(115200);
     pinMode(menuButtonPin, INPUT_PULLUP);
@@ -716,6 +754,7 @@ void setup() {
     buttonHoldHandled = buttonPressed;
 }
 
+/// Service USB status and commands, the P1 button, and BLE input from the main Arduino loop.
 void loop() {
     const bool serialOpen = Serial;
     if (serialOpen && !serialWasOpen) {

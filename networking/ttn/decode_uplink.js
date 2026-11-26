@@ -1,3 +1,13 @@
+/**
+ * The Things Stack uplink formatter for compact destination tags and older text packets.
+ */
+
+/**
+ * Map each byte at or after the given index to a JavaScript character.
+ * @param {number[]} bytes - The uplink payload bytes.
+ * @param {number} start - The index of the first byte to include.
+ * @returns {string} The resulting text.
+ */
 function bytesToText(bytes, start) {
   var text = "";
   for (var i = start; i < bytes.length; i++) {
@@ -6,6 +16,11 @@ function bytesToText(bytes, start) {
   return text;
 }
 
+/**
+ * Decode FPort 2 destination tags, older to=<hex>|text packets, and plain text.
+ * @param {{fPort: number, bytes: number[]}} input - The Things Stack uplink.
+ * @returns {object} Decoded data or validation errors in The Things Stack's formatter format.
+ */
 function decodeUplink(input) {
   if (input.fPort === 2) {
     if (input.bytes.length < 2 || input.bytes[0] === 0) {

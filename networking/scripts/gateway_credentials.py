@@ -1,3 +1,10 @@
+"""Generate the LoRaWAN configuration header for the selected PlatformIO profile.
+
+Read the device credentials from the local end devices folder and place the
+generated header in the build directory. The header also defines the peer
+registry and the initial receive-window settings for the firmware.
+"""
+
 import hashlib
 import json
 from pathlib import Path
@@ -30,6 +37,7 @@ if not isinstance(credentials, dict) or credentials.get("device_id") != device_i
 
 
 def read_hex(field, size):
+    """Return a credential field as uppercase hex after checking its byte length."""
     value = credentials.get(field)
     if not isinstance(value, str) or not re.fullmatch(rf"[0-9a-fA-F]{{{size * 2}}}", value):
         raise RuntimeError(f"{field} in {credentials_path} must contain {size * 2} hex digits")
@@ -37,10 +45,12 @@ def read_hex(field, size):
 
 
 def cpp_bytes(value):
+    """Format a validated hex string as comma-separated C++ byte literals."""
     return ", ".join(f"0x{byte:02X}" for byte in bytes.fromhex(value))
 
 
 def read_receive_option(name, minimum, maximum):
+    """Read a decimal PlatformIO option and require it to fall in the given range."""
     value = env.GetProjectOption(name, "")
     if not re.fullmatch(r"[0-9]{1,2}", value) or not minimum <= int(value) <= maximum:
         raise RuntimeError(f"Set {name} in platformio.ini to a value from {minimum} to {maximum}.")

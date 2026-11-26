@@ -1,3 +1,6 @@
+/** @file
+ * Defines the Pro Micro's clock, GPIO numbering, and board-specific pin assignments.
+ */
 #pragma once
 
 #include "WVariant.h"

@@ -1,3 +1,6 @@
+/** @file
+ * Bench sketch for checking the Pro Micro's OLED wiring and USB serial output.
+ */
 #include <Arduino.h>
 #include <Adafruit_SSD1306.h>
 #include <Wire.h>
@@ -6,6 +9,7 @@ constexpr char greeting[] = "Hello, Paul";
 constexpr uint8_t oledAddress = 0x3C;
 Adafruit_SSD1306 oled(128, 64, &Wire);
 
+/// Power the display, check its I2C address, and draw the greeting once.
 void setup() {
     Serial.begin(115200);
 
@@ -35,6 +39,7 @@ void setup() {
     oled.display();
 }
 
+/// Print the greeting to USB serial every two seconds.
 void loop() {
     Serial.println(greeting);
     delay(2000);
