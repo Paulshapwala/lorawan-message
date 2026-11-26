@@ -59,6 +59,12 @@ The sender selects a destination with the P1.0 button and sends a test message o
 
 The tag is the decimal suffix of the device ID stored in a byte. For example, `0x02` maps to `custom-2`. The supported IDs are `custom-1` through `custom-255`. Application downlinks use the receiving device's downlink budget. Check your [network and regional airtime limits](https://www.thethingsnetwork.org/docs/lorawan/duty-cycle/) when planning field tests.
 
+## Hardware attribution
+
+The KiCad files in `hardware/` contain my modifications to gargomoma’s FakeTec PCB for this prototype. [Original FakeTec hardware repository](https://github.com/gargomoma/fakeTec_pcb)
+
+I develop the modified schematic and PCB in a separate repository. [Active Meshtastic Node hardware project](https://github.com/Paulshapwala/meshtastic-node)
+
 ## Prototype wiring
 
 The current board uses a Pro Micro nRF52840, an RA-01SH LoRa module, and an SSD1306 I²C OLED at `0x3C`.
@@ -74,3 +80,7 @@ The current board uses a Pro Micro nRF52840, an RA-01SH LoRa module, and an SSD1
 | Switched 3.3 V enable | P0.13 |
 
 The prototype connects the radio's DIO2 to its TXEN line. The PCB source includes its placed footprints. Editing the design with replacement parts may require the original custom footprint libraries.
+
+## Contributing
+
+Issues and pull requests are welcome. When sharing a bug report or change, include the board profile and what you tested. Use the Meshtastic Node hardware repository for work on the PCB. [Project issues](https://github.com/Paulshapwala/lorawan-message/issues)
